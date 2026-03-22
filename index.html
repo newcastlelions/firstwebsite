@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,37 +12,27 @@
 body {
     margin: 0;
     font-family: 'Press Start 2P', cursive;
-    background: linear-gradient(to bottom, red 50%, white 50%);
-    color: black;
+    color: white;
     text-align: center;
+
+    /* 🔥 YOUR BACKGROUND IMAGE */
+    background: url('pokemon.jpg') no-repeat center center fixed;
+    background-size: cover;
 }
 
-/* Pokeball line */
+/* Dark overlay so text is readable */
 body::before {
     content: "";
     position: fixed;
-    top: 50%;
     width: 100%;
-    height: 10px;
-    background: black;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: -1;
 }
 
-/* Center circle */
-body::after {
-    content: "";
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    width: 80px;
-    height: 80px;
-    background: white;
-    border: 10px solid black;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-}
-
+/* Navbar */
 .navbar {
-    background: black;
+    background: rgba(0,0,0,0.8);
     padding: 15px;
 }
 
@@ -51,20 +42,22 @@ body::after {
     text-decoration: none;
 }
 
+/* Content */
 .container {
     padding: 40px 20px;
 }
 
 .card {
-    background: white;
+    background: rgba(255,255,255,0.9);
+    color: black;
     padding: 25px;
     margin: 20px auto;
     max-width: 500px;
     border-radius: 15px;
-    border: 5px solid black;
+    border: 4px solid black;
 }
 
-/* Title glow */
+/* Title */
 h1 {
     color: yellow;
     text-shadow: 3px 3px 0 black;
@@ -84,7 +77,6 @@ h1 {
     background: black;
 }
 
-/* Pokémon image */
 .pokemon {
     width: 150px;
 }
@@ -118,7 +110,6 @@ h1 {
 <div class="card">
     <h1>👤 About Me</h1>
     <p>I love Pokémon, gaming, and building websites.</p>
-    <p>My goal is to become a Pokémon Master 🏆</p>
 </div>
 </section>
 
