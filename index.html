@@ -3,38 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leon’s Personal Page</title>
+    <title>Leon’s Personal Website</title>
+
     <style>
         body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            background-image: url('minecraft.jpg');
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed; /* Prevents the image from scrolling */
             margin: 0;
-            padding: 0;
-            color: black; /* Text color set to black */
+            font-family: Arial, sans-serif;
+            background: url('minecraft.jpg') no-repeat center center fixed;
+            background-size: cover;
+            color: white;
         }
+
+        /* Dark overlay for readability */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: -1;
+        }
+
+        .container {
+            text-align: center;
+            margin-top: 100px;
+        }
+
+        .card {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            margin: auto;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 15px;
+            backdrop-filter: blur(5px);
+        }
+
         h1 {
-            color: white; /* Keeping heading white for contrast */
+            font-size: 40px;
+            text-shadow: 2px 2px 5px black;
         }
-        a {
-            color: white; /* Link text color */
-            text-decoration: none;
+
+        p {
             font-size: 18px;
-            margin-top: 20px;
-            display: inline-block;
         }
-        a:hover {
-            text-decoration: underline;
+
+        .btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 12px 25px;
+            background: limegreen;
+            color: black;
+            font-weight: bold;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: 0.3s;
+        }
+
+        .btn:hover {
+            background: green;
+            color: white;
+            transform: scale(1.1);
         }
     </style>
 </head>
+
 <body>
-    <h1>Welcome to Leon’s Personal Page!</h1>
-    <p>Hi, I’m Leon! Check out my favorite search engine:</p>
-    <p>My second update</p>
-    <a href="https://www.yahoo.com" target="_blank">Go to yahoo!</a>
+    <div class="container">
+        <div class="card">
+            <h1>🎮 Welcome to Leon’s World!</h1>
+
+            <p>Hey! I'm Leon 👋</p>
+            <p>I like Minecraft, gaming, and coding cool stuff.</p>
+            <p>This is my personal website 🚀</p>
+
+            <a href="https://www.yahoo.com" target="_blank" class="btn">
+                Go to Yahoo!
+            </a>
+        </div>
+    </div>
 </body>
 </html>
