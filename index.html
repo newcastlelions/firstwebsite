@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Leon’s Pokémon World</title>
+<title>Pokédex</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 
@@ -12,73 +12,53 @@
 body {
     margin: 0;
     font-family: 'Press Start 2P', cursive;
-    color: white;
-    text-align: center;
-
-    /* 🔥 YOUR BACKGROUND IMAGE */
     background: url('pokemon.jpg') no-repeat center center fixed;
     background-size: cover;
+    color: white;
+    text-align: center;
 }
 
-/* Dark overlay so text is readable */
+/* Overlay */
 body::before {
     content: "";
     position: fixed;
     width: 100%;
     height: 100%;
-    background: rgba(0,0,0,0.5);
+    background: rgba(0,0,0,0.6);
     z-index: -1;
 }
 
-/* Navbar */
-.navbar {
-    background: rgba(0,0,0,0.8);
-    padding: 15px;
-}
-
-.navbar a {
-    color: white;
-    margin: 0 15px;
-    text-decoration: none;
-}
-
-/* Content */
-.container {
-    padding: 40px 20px;
-}
-
-.card {
-    background: rgba(255,255,255,0.9);
-    color: black;
-    padding: 25px;
-    margin: 20px auto;
-    max-width: 500px;
-    border-radius: 15px;
-    border: 4px solid black;
-}
-
-/* Title */
 h1 {
-    color: yellow;
-    text-shadow: 3px 3px 0 black;
-}
-
-.btn {
-    display: inline-block;
     margin-top: 20px;
-    padding: 10px 20px;
-    background: red;
-    color: white;
-    border: 3px solid black;
-    text-decoration: none;
+    color: yellow;
+    text-shadow: 3px 3px black;
 }
 
-.btn:hover {
-    background: black;
+#pokedex {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 20px;
 }
 
+/* Pokémon card */
 .pokemon {
+    background: white;
+    color: black;
+    border-radius: 10px;
+    margin: 10px;
+    padding: 15px;
     width: 150px;
+    border: 3px solid black;
+    transition: 0.2s;
+}
+
+.pokemon:hover {
+    transform: scale(1.1);
+}
+
+.pokemon img {
+    width: 100px;
 }
 
 </style>
@@ -86,43 +66,32 @@ h1 {
 
 <body>
 
-<div class="navbar">
-    <a href="#home">Home</a>
-    <a href="#about">About</a>
-    <a href="#team">My Team</a>
-</div>
+<h1>📖 Pokédex</h1>
 
-<div class="container">
+<div id="pokedex"></div>
 
-<section id="home">
-<div class="card">
-    <h1>⚡ Leon’s Pokémon World</h1>
-    <img src="pikachu.png" class="pokemon">
-    <p>Hey! I'm Leon, a Pokémon Trainer 👋</p>
+<script>
+const pokedex = document.getElementById("pokedex");
 
-    <a href="https://www.pokemon.com" target="_blank" class="btn">
-        Visit Pokémon
-    </a>
-</div>
-</section>
+// Load first 151 Pokémon (can increase later)
+for (let i = 1; i <= 151; i++) {
+    fetch(`https://pokeapi.co/api/v2/pokemon/${i}`)
+        .then(res => res.json())
+        .then(data => {
 
-<section id="about">
-<div class="card">
-    <h1>👤 About Me</h1>
-    <p>I love Pokémon, gaming, and building websites.</p>
-</div>
-</section>
+            const card = document.createElement("div");
+            card.classList.add("pokemon");
 
-<section id="team">
-<div class="card">
-    <h1>🔥 My Team</h1>
-    <p>Pikachu ⚡</p>
-    <p>Charizard 🔥</p>
-    <p>Greninja 💧</p>
-</div>
-</section>
+            card.innerHTML = `
+                <h3>${data.name}</h3>
+                <img src="${data.sprites.front_default}">
+                <p>#${data.id}</p>
+            `;
 
-</div>
+            pokedex.appendChild(card);
+        });
+}
+</script>
 
 </body>
 </html>
