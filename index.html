@@ -6,22 +6,22 @@
   <style>
     body {
       margin: 0;
-      background: #111;
-      color: white;
+      background: white;
+      color: black;
       font-family: Arial;
       text-align: center;
     }
     canvas {
-      background: #222;
+      background: white;
       display: block;
       margin: 0 auto;
-      border: 2px solid #555;
+      border: 2px solid #999;
     }
   </style>
 </head>
 <body>
 
-<h2>🎯 Gadget Snipers (Improved)</h2>
+<h2>🎯 Gadget Snipers (Canyon Mode)</h2>
 <p>Arrow keys = Aim/Power | Space = Shoot</p>
 
 <canvas id="game" width="800" height="400"></canvas>
@@ -49,14 +49,20 @@ let enemy = {
   radius: 20
 };
 
-// Mountain triangle
-let mountain = {
-  p1: { x: 350, y: 320 },
+// 🏔️ Bottom mountain
+let groundMountain = {
+  p1: { x: 300, y: 320 },
   p2: { x: 400, y: 240 },
-  p3: { x: 450, y: 320 }
+  p3: { x: 500, y: 320 }
 };
 
-// Projectile
+// 🏔️ Top (inverted) mountain
+let ceilingMountain = {
+  p1: { x: 300, y: 80 },
+  p2: { x: 400, y: 160 },
+  p3: { x: 500, y: 80 }
+};
+
 let projectile = null;
 
 const gravity = 0.3;
@@ -82,12 +88,12 @@ function shoot() {
     vx: Math.cos(rad) * player.power,
     vy: -Math.sin(rad) * player.power,
     radius: 8,
-    bounces: 5,
+    bounces: 6,
     life: 0
   };
 }
 
-// Distance from point to line
+// Distance to line
 function pointLineDistance(px, py, x1, y1, x2, y2) {
   let A = px - x1;
   let B = py - y1;
@@ -101,11 +107,9 @@ function pointLineDistance(px, py, x1, y1, x2, y2) {
   let xx, yy;
 
   if (param < 0) {
-    xx = x1;
-    yy = y1;
+    xx = x1; yy = y1;
   } else if (param > 1) {
-    xx = x2;
-    yy = y2;
+    xx = x2; yy = y2;
   } else {
     xx = x1 + param * C;
     yy = y1 + param * D;
@@ -113,21 +117,21 @@ function pointLineDistance(px, py, x1, y1, x2, y2) {
 
   let dx = px - xx;
   let dy = py - yy;
+
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-// Reflect velocity off a line
+// Reflection
 function reflect(vx, vy, x1, y1, x2, y2) {
   let dx = x2 - x1;
   let dy = y2 - y1;
 
-  // normal
   let nx = -dy;
   let ny = dx;
 
-  let length = Math.sqrt(nx * nx + ny * ny);
-  nx /= length;
-  ny /= length;
+  let len = Math.sqrt(nx * nx + ny * ny);
+  nx /= len;
+  ny /= len;
 
   let dot = vx * nx + vy * ny;
 
@@ -137,100 +141,107 @@ function reflect(vx, vy, x1, y1, x2, y2) {
   };
 }
 
+// Check collision with triangle
+function checkTriangleCollision(tri, scale = 0.8) {
+  let sides = [
+    [tri.p1, tri.p2],
+    [tri.p2, tri.p3],
+    [tri.p3, tri.p1]
+  ];
+
+  for (let [a, b] of sides) {
+    let dist = pointLineDistance(
+      projectile.x,
+      projectile.y,
+      a.x, a.y,
+      b.x, b.y
+    );
+
+    if (dist < projectile.radius + 2) {
+      let r = reflect(projectile.vx, projectile.vy, a.x, a.y, b.x, b.y);
+      projectile.vx = r.vx * scale;
+      projectile.vy = r.vy * scale;
+      projectile.bounces--;
+      return true;
+    }
+  }
+  return false;
+}
+
 // Update
 function update() {
+  if (!projectile) return;
+
+  projectile.x += projectile.vx;
+  projectile.y += projectile.vy;
+
+  projectile.vy += gravity;
+
+  projectile.vx *= 0.999;
+  projectile.vy *= 0.999;
+
+  // Floor
+  if (projectile.y > 300) {
+    projectile.y = 300;
+    projectile.vy *= -0.7;
+    projectile.bounces--;
+  }
+
+  // Ceiling
+  if (projectile.y < 100) {
+    projectile.y = 100;
+    projectile.vy *= -0.7;
+    projectile.bounces--;
+  }
+
+  // Wall bounce
+  if (projectile.x < 0 || projectile.x > canvas.width) {
+    projectile.vx *= -0.8;
+  }
+
+  // 🏔️ Bottom mountain
+  checkTriangleCollision(groundMountain);
+
+  // 🏔️ Top mountain
+  checkTriangleCollision(ceilingMountain);
+
+  projectile.life++;
+  if (projectile.life > 800 || projectile.bounces <= 0) {
+    projectile = null;
+  }
+
+  // Hit enemy
   if (projectile) {
-    projectile.x += projectile.vx;
-    projectile.y += projectile.vy;
-
-    projectile.vy += gravity;
-
-    projectile.vx *= 0.999;
-    projectile.vy *= 0.999;
-
-    // Ground
-    if (projectile.y > 300) {
-      projectile.y = 300;
-      projectile.vy *= -0.7;
-      projectile.bounces--;
-    }
-
-    // Walls
-    if (projectile.x < 0 || projectile.x > canvas.width) {
-      projectile.vx *= -0.8;
-    }
-
-    // 🏔️ Check each triangle side
-    let sides = [
-      [mountain.p1, mountain.p2],
-      [mountain.p2, mountain.p3],
-      [mountain.p3, mountain.p1]
-    ];
-
-    for (let [a, b] of sides) {
-      let dist = pointLineDistance(
-        projectile.x,
-        projectile.y,
-        a.x,
-        a.y,
-        b.x,
-        b.y
-      );
-
-      if (dist < projectile.radius + 2) {
-        let r = reflect(projectile.vx, projectile.vy, a.x, a.y, b.x, b.y);
-        projectile.vx = r.vx * 0.8;
-        projectile.vy = r.vy * 0.8;
-        projectile.bounces--;
-        break;
-      }
-    }
-
-    // Lifetime
-    projectile.life++;
-    if (projectile.life > 600 || projectile.bounces <= 0) {
+    let dist = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
+    if (dist < enemy.radius) {
+      alert("💥 Hit!");
       projectile = null;
-    }
-
-    // Hit enemy
-    if (projectile) {
-      let dist = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
-      if (dist < enemy.radius) {
-        alert("💥 Hit!");
-        projectile = null;
-        resetEnemy();
-      }
+      enemy.x = 600 + Math.random() * 150;
     }
   }
 }
 
-function resetEnemy() {
-  enemy.x = 600 + Math.random() * 150;
+// Draw triangle
+function drawTriangle(tri, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(tri.p1.x, tri.p1.y);
+  ctx.lineTo(tri.p2.x, tri.p2.y);
+  ctx.lineTo(tri.p3.x, tri.p3.y);
+  ctx.closePath();
+  ctx.fill();
 }
 
 // Draw
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Ground
-  ctx.fillStyle = "#444";
-  ctx.fillRect(0, 320, 800, 80);
-
-  // Mountain
-  ctx.fillStyle = "#775533";
-  ctx.beginPath();
-  ctx.moveTo(mountain.p1.x, mountain.p1.y);
-  ctx.lineTo(mountain.p2.x, mountain.p2.y);
-  ctx.lineTo(mountain.p3.x, mountain.p3.y);
-  ctx.closePath();
-  ctx.fill();
-
   // Player
   ctx.drawImage(playerImg, player.x - 20, player.y - 40, 40, 40);
 
   // Aim
   let rad = player.angle * Math.PI / 180;
-  ctx.strokeStyle = "white";
+  ctx.strokeStyle = "black";
   ctx.beginPath();
   ctx.moveTo(player.x, player.y);
   ctx.lineTo(
@@ -238,6 +249,10 @@ function draw() {
     player.y - Math.sin(rad) * 40
   );
   ctx.stroke();
+
+  // Mountains
+  drawTriangle(groundMountain, "#777");
+  drawTriangle(ceilingMountain, "#999");
 
   // Enemy
   ctx.fillStyle = "red";
@@ -247,14 +262,14 @@ function draw() {
 
   // Projectile
   if (projectile) {
-    ctx.fillStyle = "yellow";
+    ctx.fillStyle = "orange";
     ctx.beginPath();
     ctx.arc(projectile.x, projectile.y, projectile.radius, 0, Math.PI * 2);
     ctx.fill();
   }
 
   // UI
-  ctx.fillStyle = "white";
+  ctx.fillStyle = "black";
   ctx.fillText("Angle: " + player.angle.toFixed(1), 10, 20);
   ctx.fillText("Power: " + player.power.toFixed(1), 10, 40);
 }
