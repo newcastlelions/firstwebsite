@@ -21,8 +21,8 @@
 </head>
 <body>
 
-<h2>🎯 Gadget Snipers (Canyon Mode)</h2>
-<p>Arrow keys = Aim/Power | Space = Shoot</p>
+<h2>🎯 Gadget Snipers (Turn-Based Battle)</h2>
+<p>Arrow keys = Aim/Power | Space = Shoot | Take turns!</p>
 
 <canvas id="game" width="800" height="400"></canvas>
 
@@ -34,29 +34,31 @@ const ctx = canvas.getContext("2d");
 const playerImg = new Image();
 playerImg.src = "leon.jpeg";
 
-// Player
-let player = {
-  x: 100,
-  y: 300,
-  angle: 45,
-  power: 10
-};
+// 🔁 Turn system (0 = left, 1 = right)
+let turn = 0;
 
-// Enemy
-let enemy = {
-  x: 700,
-  y: 300,
-  radius: 20
-};
+// ❤️ Health
+let players = [
+  { x: 100, y: 300, angle: 45, power: 10, hp: 100 },
+  { x: 700, y: 300, angle: 135, power: 10, hp: 100 }
+];
 
-// 🏔️ Bottom mountain
+// Enemy reference (current target)
+function getAttacker() {
+  return players[turn];
+}
+function getTarget() {
+  return players[1 - turn];
+}
+
+// 🏔️ Ground mountain
 let groundMountain = {
   p1: { x: 300, y: 320 },
   p2: { x: 400, y: 240 },
   p3: { x: 500, y: 320 }
 };
 
-// 🏔️ Top (inverted) mountain
+// 🏔️ Ceiling mountain
 let ceilingMountain = {
   p1: { x: 300, y: 80 },
   p2: { x: 400, y: 160 },
@@ -64,29 +66,31 @@ let ceilingMountain = {
 };
 
 let projectile = null;
-
 const gravity = 0.3;
 
 // Controls
 document.addEventListener("keydown", e => {
-  if (e.key === "ArrowUp") player.angle += 2;
-  if (e.key === "ArrowDown") player.angle -= 2;
-  if (e.key === "ArrowRight") player.power += 0.5;
-  if (e.key === "ArrowLeft") player.power -= 0.5;
+  let p = getAttacker();
 
-  player.power = Math.max(2, Math.min(player.power, 25));
+  if (e.key === "ArrowUp") p.angle += 2;
+  if (e.key === "ArrowDown") p.angle -= 2;
+  if (e.key === "ArrowRight") p.power += 0.5;
+  if (e.key === "ArrowLeft") p.power -= 0.5;
+
+  p.power = Math.max(2, Math.min(p.power, 25));
 
   if (e.code === "Space" && !projectile) shoot();
 });
 
 function shoot() {
-  let rad = player.angle * Math.PI / 180;
+  let p = getAttacker();
+  let rad = p.angle * Math.PI / 180;
 
   projectile = {
-    x: player.x,
-    y: player.y,
-    vx: Math.cos(rad) * player.power,
-    vy: -Math.sin(rad) * player.power,
+    x: p.x,
+    y: p.y,
+    vx: Math.cos(rad) * p.power,
+    vy: -Math.sin(rad) * p.power,
     radius: 8,
     bounces: 6,
     life: 0
@@ -117,11 +121,10 @@ function pointLineDistance(px, py, x1, y1, x2, y2) {
 
   let dx = px - xx;
   let dy = py - yy;
-
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-// Reflection
+// Reflect physics
 function reflect(vx, vy, x1, y1, x2, y2) {
   let dx = x2 - x1;
   let dy = y2 - y1;
@@ -141,8 +144,8 @@ function reflect(vx, vy, x1, y1, x2, y2) {
   };
 }
 
-// Check collision with triangle
-function checkTriangleCollision(tri, scale = 0.8) {
+// Collision check
+function checkTriangle(tri) {
   let sides = [
     [tri.p1, tri.p2],
     [tri.p2, tri.p3],
@@ -151,16 +154,15 @@ function checkTriangleCollision(tri, scale = 0.8) {
 
   for (let [a, b] of sides) {
     let dist = pointLineDistance(
-      projectile.x,
-      projectile.y,
+      projectile.x, projectile.y,
       a.x, a.y,
       b.x, b.y
     );
 
     if (dist < projectile.radius + 2) {
       let r = reflect(projectile.vx, projectile.vy, a.x, a.y, b.x, b.y);
-      projectile.vx = r.vx * scale;
-      projectile.vy = r.vy * scale;
+      projectile.vx = r.vx * 0.8;
+      projectile.vy = r.vy * 0.8;
       projectile.bounces--;
       return true;
     }
@@ -180,7 +182,7 @@ function update() {
   projectile.vx *= 0.999;
   projectile.vy *= 0.999;
 
-  // Floor
+  // Ground
   if (projectile.y > 300) {
     projectile.y = 300;
     projectile.vy *= -0.7;
@@ -194,71 +196,91 @@ function update() {
     projectile.bounces--;
   }
 
-  // Wall bounce
-  if (projectile.x < 0 || projectile.x > canvas.width) {
-    projectile.vx *= -0.8;
-  }
-
-  // 🏔️ Bottom mountain
-  checkTriangleCollision(groundMountain);
-
-  // 🏔️ Top mountain
-  checkTriangleCollision(ceilingMountain);
+  // Mountains
+  checkTriangle(groundMountain);
+  checkTriangle(ceilingMountain);
 
   projectile.life++;
   if (projectile.life > 800 || projectile.bounces <= 0) {
-    projectile = null;
+    switchTurn();
   }
 
-  // Hit enemy
-  if (projectile) {
-    let dist = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
-    if (dist < enemy.radius) {
-      alert("💥 Hit!");
-      projectile = null;
-      enemy.x = 600 + Math.random() * 150;
+  // Hit player
+  let target = getTarget();
+  let dist = Math.hypot(projectile.x - target.x, projectile.y - target.y);
+
+  if (dist < 20) {
+    target.hp -= 25;
+    projectile = null;
+
+    if (target.hp <= 0) {
+      alert("🏆 Player " + (turn + 1) + " wins!");
+      resetGame();
+      return;
     }
+
+    switchTurn();
   }
 }
 
+function switchTurn() {
+  projectile = null;
+  turn = 1 - turn;
+}
+
+function resetGame() {
+  players[0].hp = 100;
+  players[1].hp = 100;
+  turn = 0;
+}
+
 // Draw triangle
-function drawTriangle(tri, color) {
+function drawTriangle(t, color) {
   ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.moveTo(tri.p1.x, tri.p1.y);
-  ctx.lineTo(tri.p2.x, tri.p2.y);
-  ctx.lineTo(tri.p3.x, tri.p3.y);
+  ctx.moveTo(t.p1.x, t.p1.y);
+  ctx.lineTo(t.p2.x, t.p2.y);
+  ctx.lineTo(t.p3.x, t.p3.y);
   ctx.closePath();
   ctx.fill();
+}
+
+// ❤️ Health bar
+function drawHealthBar(p, x, y) {
+  ctx.fillStyle = "red";
+  ctx.fillRect(x, y, 100, 10);
+
+  ctx.fillStyle = "lime";
+  ctx.fillRect(x, y, p.hp, 10);
+
+  ctx.strokeStyle = "black";
+  ctx.strokeRect(x, y, 100, 10);
 }
 
 // Draw
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Player
-  ctx.drawImage(playerImg, player.x - 20, player.y - 40, 40, 40);
-
-  // Aim
-  let rad = player.angle * Math.PI / 180;
-  ctx.strokeStyle = "black";
-  ctx.beginPath();
-  ctx.moveTo(player.x, player.y);
-  ctx.lineTo(
-    player.x + Math.cos(rad) * 40,
-    player.y - Math.sin(rad) * 40
-  );
-  ctx.stroke();
-
   // Mountains
   drawTriangle(groundMountain, "#777");
   drawTriangle(ceilingMountain, "#999");
 
-  // Enemy
-  ctx.fillStyle = "red";
-  ctx.beginPath();
-  ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
-  ctx.fill();
+  // Players
+  players.forEach((p, i) => {
+    ctx.drawImage(playerImg, p.x - 20, p.y - 40, 40, 40);
+
+    let rad = p.angle * Math.PI / 180;
+    ctx.strokeStyle = "black";
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(
+      p.x + Math.cos(rad) * 40,
+      p.y - Math.sin(rad) * 40
+    );
+    ctx.stroke();
+
+    drawHealthBar(p, p.x - 50, p.y - 70);
+  });
 
   // Projectile
   if (projectile) {
@@ -270,8 +292,7 @@ function draw() {
 
   // UI
   ctx.fillStyle = "black";
-  ctx.fillText("Angle: " + player.angle.toFixed(1), 10, 20);
-  ctx.fillText("Power: " + player.power.toFixed(1), 10, 40);
+  ctx.fillText("Player " + (turn + 1) + "'s turn", 10, 20);
 }
 
 // Loop
