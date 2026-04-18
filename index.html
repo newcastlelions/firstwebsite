@@ -1,27 +1,166 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Links</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <title>Gadget Snipers Prototype</title>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      color: white;
+      font-family: Arial;
+      text-align: center;
+    }
+    canvas {
+      background: #222;
+      display: block;
+      margin: 0 auto;
+      border: 2px solid #555;
+    }
+  </style>
 </head>
 <body>
-    <header>
-        <h1>Welcome to Leon's Gaming Website.</h1>
-        <h2>I love my website!</h2>
-        <h3>I am so lucky to have a hacker that helped me!</h3>
-        <nav>
-            <ul>
-                <li><a href="https://pizzaedition.win">Pizza Edition</a></li>
 
+<h2>🎯 Gadget Snipers (Prototype)</h2>
+<p>Arrow keys = Aim | Space = Shoot</p>
 
-                <!-- Add more links here -->
-            </ul>
-        </nav>
-    </header>
-    <footer>
-        <p>&copy; 2026 Game Links Website</p>
-    </footer>
+<canvas id="game" width="800" height="400"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+// Player
+let player = {
+  x: 100,
+  y: 300,
+  angle: 45,
+  power: 10
+};
+
+// Enemy
+let enemy = {
+  x: 700,
+  y: 300,
+  radius: 20
+};
+
+// Projectile
+let projectile = null;
+
+const gravity = 0.3;
+
+// Controls
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowUp") player.angle += 2;
+  if (e.key === "ArrowDown") player.angle -= 2;
+  if (e.key === "ArrowRight") player.power += 0.5;
+  if (e.key === "ArrowLeft") player.power -= 0.5;
+
+  if (e.code === "Space" && !projectile) shoot();
+});
+
+function shoot() {
+  let rad = player.angle * Math.PI / 180;
+
+  projectile = {
+    x: player.x,
+    y: player.y,
+    vx: Math.cos(rad) * player.power,
+    vy: -Math.sin(rad) * player.power,
+    radius: 8,
+    bounces: 3
+  };
+}
+
+// Update physics
+function update() {
+  if (projectile) {
+    projectile.x += projectile.vx;
+    projectile.y += projectile.vy;
+    projectile.vy += gravity;
+
+    // 🧠 Slight homing effect (gadget behavior)
+    let dx = enemy.x - projectile.x;
+    projectile.vx += dx * 0.0005;
+
+    // Bounce on ground
+    if (projectile.y > 300) {
+      projectile.y = 300;
+      projectile.vy *= -0.6;
+      projectile.bounces--;
+
+      if (projectile.bounces <= 0) projectile = null;
+    }
+
+    // Hit enemy
+    let dist = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
+    if (dist < enemy.radius) {
+      alert("💥 Hit!");
+      projectile = null;
+      resetEnemy();
+    }
+  }
+}
+
+function resetEnemy() {
+  enemy.x = 600 + Math.random() * 150;
+}
+
+// Draw everything
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Ground
+  ctx.fillStyle = "#444";
+  ctx.fillRect(0, 320, 800, 80);
+
+  // Player
+  ctx.fillStyle = "cyan";
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, 15, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Aim line
+  let rad = player.angle * Math.PI / 180;
+  ctx.strokeStyle = "white";
+  ctx.beginPath();
+  ctx.moveTo(player.x, player.y);
+  ctx.lineTo(
+    player.x + Math.cos(rad) * 40,
+    player.y - Math.sin(rad) * 40
+  );
+  ctx.stroke();
+
+  // Enemy
+  ctx.fillStyle = "red";
+  ctx.beginPath();
+  ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Projectile
+  if (projectile) {
+    ctx.fillStyle = "yellow";
+    ctx.beginPath();
+    ctx.arc(projectile.x, projectile.y, projectile.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // UI
+  ctx.fillStyle = "white";
+  ctx.fillText("Angle: " + player.angle.toFixed(1), 10, 20);
+  ctx.fillText("Power: " + player.power.toFixed(1), 10, 40);
+}
+
+// Game loop
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+
 </body>
 </html>
