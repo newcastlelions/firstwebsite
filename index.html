@@ -30,6 +30,10 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
+// 🧍 Load player image
+const playerImg = new Image();
+playerImg.src = "leon.jpeg";
+
 // Player
 let player = {
   x: 100,
@@ -45,6 +49,14 @@ let enemy = {
   radius: 20
 };
 
+// 🏔️ Mountain obstacle
+let mountain = {
+  x: 350,
+  y: 320,
+  width: 100,
+  height: 80
+};
+
 // Projectile
 let projectile = null;
 
@@ -57,7 +69,6 @@ document.addEventListener("keydown", e => {
   if (e.key === "ArrowRight") player.power += 0.5;
   if (e.key === "ArrowLeft") player.power -= 0.5;
 
-  // ✅ Cap power
   player.power = Math.max(2, Math.min(player.power, 25));
 
   if (e.code === "Space" && !projectile) shoot();
@@ -73,7 +84,7 @@ function shoot() {
     vy: -Math.sin(rad) * player.power,
     radius: 8,
     bounces: 5,
-    life: 0 // ✅ timeout counter
+    life: 0
   };
 }
 
@@ -85,22 +96,22 @@ function update() {
 
     projectile.vy += gravity;
 
-    // ✅ Air resistance
+    // Air resistance
     projectile.vx *= 0.999;
     projectile.vy *= 0.999;
 
-    // 🧠 Slight homing effect
+    // Slight homing
     let dx = enemy.x - projectile.x;
     projectile.vx += dx * 0.0005;
 
-    // ✅ Bounce on ground
+    // Ground bounce
     if (projectile.y > 300) {
       projectile.y = 300;
       projectile.vy *= -0.7;
       projectile.bounces--;
     }
 
-    // ✅ Bounce on left/right walls
+    // Wall bounce
     if (projectile.x < 0) {
       projectile.x = 0;
       projectile.vx *= -0.8;
@@ -111,13 +122,23 @@ function update() {
       projectile.vx *= -0.8;
     }
 
-    // ✅ Shot timeout
+    // 🏔️ Mountain collision (simple)
+    if (
+      projectile.x > mountain.x &&
+      projectile.x < mountain.x + mountain.width &&
+      projectile.y > mountain.y - mountain.height
+    ) {
+      projectile.y = mountain.y - mountain.height;
+      projectile.vy *= -0.7;
+      projectile.bounces--;
+    }
+
+    // Lifetime
     projectile.life++;
     if (projectile.life > 600) {
       projectile = null;
     }
 
-    // ✅ Remove if too many bounces
     if (projectile && projectile.bounces <= 0) {
       projectile = null;
     }
@@ -146,11 +167,17 @@ function draw() {
   ctx.fillStyle = "#444";
   ctx.fillRect(0, 320, 800, 80);
 
-  // Player
-  ctx.fillStyle = "cyan";
+  // 🏔️ Mountain (triangle)
+  ctx.fillStyle = "#775533";
   ctx.beginPath();
-  ctx.arc(player.x, player.y, 15, 0, Math.PI * 2);
+  ctx.moveTo(mountain.x, mountain.y);
+  ctx.lineTo(mountain.x + mountain.width / 2, mountain.y - mountain.height);
+  ctx.lineTo(mountain.x + mountain.width, mountain.y);
+  ctx.closePath();
   ctx.fill();
+
+  // 🧍 Player (image)
+  ctx.drawImage(playerImg, player.x - 20, player.y - 40, 40, 40);
 
   // Aim line
   let rad = player.angle * Math.PI / 180;
