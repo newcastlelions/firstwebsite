@@ -21,8 +21,8 @@
 </head>
 <body>
 
-<h2>🎯 Gadget Snipers (Prototype)</h2>
-<p>Arrow keys = Aim | Space = Shoot</p>
+<h2>🎯 Gadget Snipers (Improved)</h2>
+<p>Arrow keys = Aim/Power | Space = Shoot</p>
 
 <canvas id="game" width="800" height="400"></canvas>
 
@@ -57,6 +57,9 @@ document.addEventListener("keydown", e => {
   if (e.key === "ArrowRight") player.power += 0.5;
   if (e.key === "ArrowLeft") player.power -= 0.5;
 
+  // ✅ Cap power
+  player.power = Math.max(2, Math.min(player.power, 25));
+
   if (e.code === "Space" && !projectile) shoot();
 });
 
@@ -69,14 +72,22 @@ function shoot() {
     vx: Math.cos(rad) * player.power,
     vy: -Math.sin(rad) * player.power,
     radius: 8,
-    bounces: 3
+    bounces: 5,
+    life: 0 // ✅ timeout counter
   };
 }
+
+// Update physics
 function update() {
   if (projectile) {
     projectile.x += projectile.vx;
     projectile.y += projectile.vy;
+
     projectile.vy += gravity;
+
+    // ✅ Air resistance
+    projectile.vx *= 0.999;
+    projectile.vy *= 0.999;
 
     // 🧠 Slight homing effect
     let dx = enemy.x - projectile.x;
@@ -85,33 +96,44 @@ function update() {
     // ✅ Bounce on ground
     if (projectile.y > 300) {
       projectile.y = 300;
-      projectile.vy *= -0.6;
+      projectile.vy *= -0.7;
       projectile.bounces--;
-
-      if (projectile.bounces <= 0) {
-        projectile = null;
-      }
     }
 
-    // ✅ NEW: Out-of-bounds protection (prevents freeze)
-    if (
-      projectile.x > canvas.width + 100 ||
-      projectile.x < -100 ||
-      projectile.y > canvas.height + 100 ||
-      projectile.y < -100
-    ) {
+    // ✅ Bounce on left/right walls
+    if (projectile.x < 0) {
+      projectile.x = 0;
+      projectile.vx *= -0.8;
+    }
+
+    if (projectile.x > canvas.width) {
+      projectile.x = canvas.width;
+      projectile.vx *= -0.8;
+    }
+
+    // ✅ Shot timeout
+    projectile.life++;
+    if (projectile.life > 600) {
+      projectile = null;
+    }
+
+    // ✅ Remove if too many bounces
+    if (projectile && projectile.bounces <= 0) {
       projectile = null;
     }
 
     // Hit enemy
-    let dist = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
-    if (dist < enemy.radius) {
-      alert("💥 Hit!");
-      projectile = null;
-      resetEnemy();
+    if (projectile) {
+      let dist = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
+      if (dist < enemy.radius) {
+        alert("💥 Hit!");
+        projectile = null;
+        resetEnemy();
+      }
     }
   }
 }
+
 function resetEnemy() {
   enemy.x = 600 + Math.random() * 150;
 }
