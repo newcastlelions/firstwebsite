@@ -72,25 +72,35 @@ function shoot() {
     bounces: 3
   };
 }
-
-// Update physics
 function update() {
   if (projectile) {
     projectile.x += projectile.vx;
     projectile.y += projectile.vy;
     projectile.vy += gravity;
 
-    // 🧠 Slight homing effect (gadget behavior)
+    // 🧠 Slight homing effect
     let dx = enemy.x - projectile.x;
     projectile.vx += dx * 0.0005;
 
-    // Bounce on ground
+    // ✅ Bounce on ground
     if (projectile.y > 300) {
       projectile.y = 300;
       projectile.vy *= -0.6;
       projectile.bounces--;
 
-      if (projectile.bounces <= 0) projectile = null;
+      if (projectile.bounces <= 0) {
+        projectile = null;
+      }
+    }
+
+    // ✅ NEW: Out-of-bounds protection (prevents freeze)
+    if (
+      projectile.x > canvas.width + 100 ||
+      projectile.x < -100 ||
+      projectile.y > canvas.height + 100 ||
+      projectile.y < -100
+    ) {
+      projectile = null;
     }
 
     // Hit enemy
@@ -102,7 +112,6 @@ function update() {
     }
   }
 }
-
 function resetEnemy() {
   enemy.x = 600 + Math.random() * 150;
 }
