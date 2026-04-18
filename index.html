@@ -21,8 +21,8 @@
 </head>
 <body>
 
-<h2>🎯 Gadget Snipers (Turn-Based Battle)</h2>
-<p>Arrow keys = Aim/Power | Space = Shoot | Take turns!</p>
+<h2>🎯 Gadget Snipers (Fixed Turn System)</h2>
+<p>Arrow keys = Aim/Power | Space = Shoot | Turns alternate properly</p>
 
 <canvas id="game" width="800" height="400"></canvas>
 
@@ -34,31 +34,21 @@ const ctx = canvas.getContext("2d");
 const playerImg = new Image();
 playerImg.src = "leon.jpeg";
 
-// 🔁 Turn system (0 = left, 1 = right)
-let turn = 0;
-
-// ❤️ Health
+// 🔁 Players (separate states = FIXED TURN BUG)
 let players = [
   { x: 100, y: 300, angle: 45, power: 10, hp: 100 },
   { x: 700, y: 300, angle: 135, power: 10, hp: 100 }
 ];
 
-// Enemy reference (current target)
-function getAttacker() {
-  return players[turn];
-}
-function getTarget() {
-  return players[1 - turn];
-}
+let turn = 0;
 
-// 🏔️ Ground mountain
+// 🏔️ Mountains
 let groundMountain = {
   p1: { x: 300, y: 320 },
   p2: { x: 400, y: 240 },
   p3: { x: 500, y: 320 }
 };
 
-// 🏔️ Ceiling mountain
 let ceilingMountain = {
   p1: { x: 300, y: 80 },
   p2: { x: 400, y: 160 },
@@ -68,9 +58,17 @@ let ceilingMountain = {
 let projectile = null;
 const gravity = 0.3;
 
-// Controls
+// 👉 FIX: Only current player is used
+function currentPlayer() {
+  return players[turn];
+}
+function enemyPlayer() {
+  return players[1 - turn];
+}
+
+// Controls (ONLY CURRENT PLAYER)
 document.addEventListener("keydown", e => {
-  let p = getAttacker();
+  let p = currentPlayer();
 
   if (e.key === "ArrowUp") p.angle += 2;
   if (e.key === "ArrowDown") p.angle -= 2;
@@ -79,11 +77,12 @@ document.addEventListener("keydown", e => {
 
   p.power = Math.max(2, Math.min(p.power, 25));
 
+  // Only shoot if no projectile exists
   if (e.code === "Space" && !projectile) shoot();
 });
 
 function shoot() {
-  let p = getAttacker();
+  let p = currentPlayer();
   let rad = p.angle * Math.PI / 180;
 
   projectile = {
@@ -97,7 +96,7 @@ function shoot() {
   };
 }
 
-// Distance to line
+// Distance helper
 function pointLineDistance(px, py, x1, y1, x2, y2) {
   let A = px - x1;
   let B = py - y1;
@@ -124,7 +123,7 @@ function pointLineDistance(px, py, x1, y1, x2, y2) {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-// Reflect physics
+// Reflection physics
 function reflect(vx, vy, x1, y1, x2, y2) {
   let dx = x2 - x1;
   let dy = y2 - y1;
@@ -144,7 +143,7 @@ function reflect(vx, vy, x1, y1, x2, y2) {
   };
 }
 
-// Collision check
+// Triangle collision
 function checkTriangle(tri) {
   let sides = [
     [tri.p1, tri.p2],
@@ -168,6 +167,12 @@ function checkTriangle(tri) {
     }
   }
   return false;
+}
+
+// 🔁 TURN SWITCH (FIXED)
+function switchTurn() {
+  projectile = null;
+  turn = 1 - turn;
 }
 
 // Update
@@ -201,19 +206,26 @@ function update() {
   checkTriangle(ceilingMountain);
 
   projectile.life++;
-  if (projectile.life > 800 || projectile.bounces <= 0) {
+
+  // End turn conditions (FIXED)
+  if (
+    projectile.life > 800 ||
+    projectile.bounces <= 0 ||
+    projectile.x < 0 ||
+    projectile.x > canvas.width
+  ) {
     switchTurn();
   }
 
-  // Hit player
-  let target = getTarget();
-  let dist = Math.hypot(projectile.x - target.x, projectile.y - target.y);
+  // Hit enemy
+  let enemy = enemyPlayer();
+  let dist = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
 
   if (dist < 20) {
-    target.hp -= 25;
+    enemy.hp -= 25;
     projectile = null;
 
-    if (target.hp <= 0) {
+    if (enemy.hp <= 0) {
       alert("🏆 Player " + (turn + 1) + " wins!");
       resetGame();
       return;
@@ -223,15 +235,12 @@ function update() {
   }
 }
 
-function switchTurn() {
-  projectile = null;
-  turn = 1 - turn;
-}
-
+// Reset game
 function resetGame() {
   players[0].hp = 100;
   players[1].hp = 100;
   turn = 0;
+  projectile = null;
 }
 
 // Draw triangle
@@ -245,14 +254,12 @@ function drawTriangle(t, color) {
   ctx.fill();
 }
 
-// ❤️ Health bar
-function drawHealthBar(p, x, y) {
+// Health bar
+function drawHealth(p, x, y) {
   ctx.fillStyle = "red";
   ctx.fillRect(x, y, 100, 10);
-
   ctx.fillStyle = "lime";
   ctx.fillRect(x, y, p.hp, 10);
-
   ctx.strokeStyle = "black";
   ctx.strokeRect(x, y, 100, 10);
 }
@@ -261,12 +268,10 @@ function drawHealthBar(p, x, y) {
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Mountains
   drawTriangle(groundMountain, "#777");
   drawTriangle(ceilingMountain, "#999");
 
-  // Players
-  players.forEach((p, i) => {
+  players.forEach(p => {
     ctx.drawImage(playerImg, p.x - 20, p.y - 40, 40, 40);
 
     let rad = p.angle * Math.PI / 180;
@@ -279,10 +284,9 @@ function draw() {
     );
     ctx.stroke();
 
-    drawHealthBar(p, p.x - 50, p.y - 70);
+    drawHealth(p, p.x - 50, p.y - 70);
   });
 
-  // Projectile
   if (projectile) {
     ctx.fillStyle = "orange";
     ctx.beginPath();
@@ -290,7 +294,6 @@ function draw() {
     ctx.fill();
   }
 
-  // UI
   ctx.fillStyle = "black";
   ctx.fillText("Player " + (turn + 1) + "'s turn", 10, 20);
 }
