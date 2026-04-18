@@ -21,8 +21,8 @@
 </head>
 <body>
 
-<h2>🎯 Gadget Snipers (Fixed Turn System)</h2>
-<p>Arrow keys = Aim/Power | Space = Shoot | Turns alternate properly</p>
+<h2>🎯 Gadget Snipers (Moving Target Mode)</h2>
+<p>Arrow keys = Aim/Power | Space = Shoot</p>
 
 <canvas id="game" width="800" height="400"></canvas>
 
@@ -34,21 +34,31 @@ const ctx = canvas.getContext("2d");
 const playerImg = new Image();
 playerImg.src = "leon.jpeg";
 
-// 🔁 Players (separate states = FIXED TURN BUG)
-let players = [
-  { x: 100, y: 300, angle: 45, power: 10, hp: 100 },
-  { x: 700, y: 300, angle: 135, power: 10, hp: 100 }
-];
+// Player (fixed position)
+let player = {
+  x: 100,
+  y: 300,
+  angle: 45,
+  power: 10
+};
 
-let turn = 0;
+// 🎯 Moving target
+let target = {
+  x: 700,
+  y: 200,
+  radius: 20,
+  direction: 1,
+  speed: 2
+};
 
-// 🏔️ Mountains
+// 🏔️ Ground mountain
 let groundMountain = {
   p1: { x: 300, y: 320 },
   p2: { x: 400, y: 240 },
   p3: { x: 500, y: 320 }
 };
 
+// 🏔️ Ceiling mountain
 let ceilingMountain = {
   p1: { x: 300, y: 80 },
   p2: { x: 400, y: 160 },
@@ -58,42 +68,38 @@ let ceilingMountain = {
 let projectile = null;
 const gravity = 0.3;
 
-// 👉 FIX: Only current player is used
-function currentPlayer() {
-  return players[turn];
-}
-function enemyPlayer() {
-  return players[1 - turn];
-}
-
-// Controls (ONLY CURRENT PLAYER)
+// Controls
 document.addEventListener("keydown", e => {
-  let p = currentPlayer();
+  if (e.key === "ArrowUp") player.angle += 2;
+  if (e.key === "ArrowDown") player.angle -= 2;
+  if (e.key === "ArrowRight") player.power += 0.5;
+  if (e.key === "ArrowLeft") player.power -= 0.5;
 
-  if (e.key === "ArrowUp") p.angle += 2;
-  if (e.key === "ArrowDown") p.angle -= 2;
-  if (e.key === "ArrowRight") p.power += 0.5;
-  if (e.key === "ArrowLeft") p.power -= 0.5;
+  player.power = Math.max(2, Math.min(player.power, 25));
 
-  p.power = Math.max(2, Math.min(p.power, 25));
-
-  // Only shoot if no projectile exists
   if (e.code === "Space" && !projectile) shoot();
 });
 
 function shoot() {
-  let p = currentPlayer();
-  let rad = p.angle * Math.PI / 180;
+  let rad = player.angle * Math.PI / 180;
 
   projectile = {
-    x: p.x,
-    y: p.y,
-    vx: Math.cos(rad) * p.power,
-    vy: -Math.sin(rad) * p.power,
+    x: player.x,
+    y: player.y,
+    vx: Math.cos(rad) * player.power,
+    vy: -Math.sin(rad) * player.power,
     radius: 8,
     bounces: 6,
     life: 0
   };
+}
+
+// Move target up/down
+function updateTarget() {
+  target.y += target.speed * target.direction;
+
+  if (target.y > 280) target.direction = -1;
+  if (target.y < 120) target.direction = 1;
 }
 
 // Distance helper
@@ -123,7 +129,7 @@ function pointLineDistance(px, py, x1, y1, x2, y2) {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-// Reflection physics
+// Reflection
 function reflect(vx, vy, x1, y1, x2, y2) {
   let dx = x2 - x1;
   let dy = y2 - y1;
@@ -169,14 +175,10 @@ function checkTriangle(tri) {
   return false;
 }
 
-// 🔁 TURN SWITCH (FIXED)
-function switchTurn() {
-  projectile = null;
-  turn = 1 - turn;
-}
-
-// Update
+// Update physics
 function update() {
+  updateTarget();
+
   if (!projectile) return;
 
   projectile.x += projectile.vx;
@@ -201,46 +203,20 @@ function update() {
     projectile.bounces--;
   }
 
-  // Mountains
   checkTriangle(groundMountain);
   checkTriangle(ceilingMountain);
 
   projectile.life++;
-
-  // End turn conditions (FIXED)
-  if (
-    projectile.life > 800 ||
-    projectile.bounces <= 0 ||
-    projectile.x < 0 ||
-    projectile.x > canvas.width
-  ) {
-    switchTurn();
-  }
-
-  // Hit enemy
-  let enemy = enemyPlayer();
-  let dist = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
-
-  if (dist < 20) {
-    enemy.hp -= 25;
+  if (projectile.life > 800 || projectile.bounces <= 0) {
     projectile = null;
-
-    if (enemy.hp <= 0) {
-      alert("🏆 Player " + (turn + 1) + " wins!");
-      resetGame();
-      return;
-    }
-
-    switchTurn();
   }
-}
 
-// Reset game
-function resetGame() {
-  players[0].hp = 100;
-  players[1].hp = 100;
-  turn = 0;
-  projectile = null;
+  // Hit target
+  let dist = Math.hypot(projectile.x - target.x, projectile.y - target.y);
+  if (dist < target.radius) {
+    alert("🎯 HIT!");
+    projectile = null;
+  }
 }
 
 // Draw triangle
@@ -254,39 +230,35 @@ function drawTriangle(t, color) {
   ctx.fill();
 }
 
-// Health bar
-function drawHealth(p, x, y) {
-  ctx.fillStyle = "red";
-  ctx.fillRect(x, y, 100, 10);
-  ctx.fillStyle = "lime";
-  ctx.fillRect(x, y, p.hp, 10);
-  ctx.strokeStyle = "black";
-  ctx.strokeRect(x, y, 100, 10);
-}
-
 // Draw
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // Mountains
   drawTriangle(groundMountain, "#777");
   drawTriangle(ceilingMountain, "#999");
 
-  players.forEach(p => {
-    ctx.drawImage(playerImg, p.x - 20, p.y - 40, 40, 40);
+  // Player
+  ctx.drawImage(playerImg, player.x - 20, player.y - 40, 40, 40);
 
-    let rad = p.angle * Math.PI / 180;
-    ctx.strokeStyle = "black";
-    ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
-    ctx.lineTo(
-      p.x + Math.cos(rad) * 40,
-      p.y - Math.sin(rad) * 40
-    );
-    ctx.stroke();
+  // Aim line
+  let rad = player.angle * Math.PI / 180;
+  ctx.strokeStyle = "black";
+  ctx.beginPath();
+  ctx.moveTo(player.x, player.y);
+  ctx.lineTo(
+    player.x + Math.cos(rad) * 40,
+    player.y - Math.sin(rad) * 40
+  );
+  ctx.stroke();
 
-    drawHealth(p, p.x - 50, p.y - 70);
-  });
+  // Target
+  ctx.fillStyle = "red";
+  ctx.beginPath();
+  ctx.arc(target.x, target.y, target.radius, 0, Math.PI * 2);
+  ctx.fill();
 
+  // Projectile
   if (projectile) {
     ctx.fillStyle = "orange";
     ctx.beginPath();
@@ -294,8 +266,10 @@ function draw() {
     ctx.fill();
   }
 
+  // UI
   ctx.fillStyle = "black";
-  ctx.fillText("Player " + (turn + 1) + "'s turn", 10, 20);
+  ctx.fillText("Angle: " + player.angle.toFixed(1), 10, 20);
+  ctx.fillText("Power: " + player.power.toFixed(1), 10, 40);
 }
 
 // Loop
