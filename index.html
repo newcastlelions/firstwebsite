@@ -30,7 +30,7 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-// 🧍 Load player image
+// 🧍 Player image
 const playerImg = new Image();
 playerImg.src = "leon.jpeg";
 
@@ -49,12 +49,11 @@ let enemy = {
   radius: 20
 };
 
-// 🏔️ Mountain obstacle
+// 🏔️ Mountain (triangle points)
 let mountain = {
-  x: 350,
-  y: 320,
-  width: 100,
-  height: 80
+  p1: { x: 350, y: 320 },
+  p2: { x: 400, y: 240 },
+  p3: { x: 450, y: 320 }
 };
 
 // Projectile
@@ -88,6 +87,22 @@ function shoot() {
   };
 }
 
+// 🔺 Check if point inside triangle
+function pointInTriangle(px, py, a, b, c) {
+  function sign(p1, p2, p3) {
+    return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
+  }
+
+  let d1 = sign({x:px,y:py}, a, b);
+  let d2 = sign({x:px,y:py}, b, c);
+  let d3 = sign({x:px,y:py}, c, a);
+
+  let hasNeg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+  let hasPos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+
+  return !(hasNeg && hasPos);
+}
+
 // Update physics
 function update() {
   if (projectile) {
@@ -96,22 +111,20 @@ function update() {
 
     projectile.vy += gravity;
 
-    // Air resistance
     projectile.vx *= 0.999;
     projectile.vy *= 0.999;
 
-    // Slight homing
     let dx = enemy.x - projectile.x;
     projectile.vx += dx * 0.0005;
 
-    // Ground bounce
+    // Ground
     if (projectile.y > 300) {
       projectile.y = 300;
       projectile.vy *= -0.7;
       projectile.bounces--;
     }
 
-    // Wall bounce
+    // Walls
     if (projectile.x < 0) {
       projectile.x = 0;
       projectile.vx *= -0.8;
@@ -122,22 +135,24 @@ function update() {
       projectile.vx *= -0.8;
     }
 
-    // 🏔️ Mountain collision (simple)
-    if (
-      projectile.x > mountain.x &&
-      projectile.x < mountain.x + mountain.width &&
-      projectile.y > mountain.y - mountain.height
-    ) {
-      projectile.y = mountain.y - mountain.height;
-      projectile.vy *= -0.7;
+    // 🏔️ REAL triangle collision
+    if (pointInTriangle(
+        projectile.x,
+        projectile.y,
+        mountain.p1,
+        mountain.p2,
+        mountain.p3
+    )) {
+      // Push projectile upward + bounce
+      projectile.y -= 5;
+      projectile.vy *= -0.8;
+      projectile.vx *= 0.9;
       projectile.bounces--;
     }
 
     // Lifetime
     projectile.life++;
-    if (projectile.life > 600) {
-      projectile = null;
-    }
+    if (projectile.life > 600) projectile = null;
 
     if (projectile && projectile.bounces <= 0) {
       projectile = null;
@@ -159,7 +174,7 @@ function resetEnemy() {
   enemy.x = 600 + Math.random() * 150;
 }
 
-// Draw everything
+// Draw
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -167,16 +182,16 @@ function draw() {
   ctx.fillStyle = "#444";
   ctx.fillRect(0, 320, 800, 80);
 
-  // 🏔️ Mountain (triangle)
+  // 🏔️ Draw triangle mountain
   ctx.fillStyle = "#775533";
   ctx.beginPath();
-  ctx.moveTo(mountain.x, mountain.y);
-  ctx.lineTo(mountain.x + mountain.width / 2, mountain.y - mountain.height);
-  ctx.lineTo(mountain.x + mountain.width, mountain.y);
+  ctx.moveTo(mountain.p1.x, mountain.p1.y);
+  ctx.lineTo(mountain.p2.x, mountain.p2.y);
+  ctx.lineTo(mountain.p3.x, mountain.p3.y);
   ctx.closePath();
   ctx.fill();
 
-  // 🧍 Player (image)
+  // Player image
   ctx.drawImage(playerImg, player.x - 20, player.y - 40, 40, 40);
 
   // Aim line
@@ -210,7 +225,7 @@ function draw() {
   ctx.fillText("Power: " + player.power.toFixed(1), 10, 40);
 }
 
-// Game loop
+// Loop
 function loop() {
   update();
   draw();
