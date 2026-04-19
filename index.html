@@ -34,6 +34,21 @@ const ctx = canvas.getContext("2d");
 const playerImg = new Image();
 playerImg.src = "leon.jpeg";
 
+// Game State
+let score = 0;
+let timeLeft = 120; // 2 minutes
+let gameActive = true;
+
+// Timer countdown
+const timerInterval = setInterval(() => {
+  if (gameActive && timeLeft > 0) {
+    timeLeft--;
+  } else if (timeLeft <= 0) {
+    gameActive = false;
+    clearInterval(timerInterval);
+  }
+}, 1000);
+
 // Player (fixed position)
 let player = {
   x: 100,
@@ -70,6 +85,8 @@ const gravity = 0.3;
 
 // Controls
 document.addEventListener("keydown", e => {
+  if (!gameActive) return; // Disable controls if game is over
+
   if (e.key === "ArrowUp") player.angle += 2;
   if (e.key === "ArrowDown") player.angle -= 2;
   if (e.key === "ArrowRight") player.power += 0.5;
@@ -177,6 +194,7 @@ function checkTriangle(tri) {
 
 // Update physics
 function update() {
+  if (!gameActive) return;
   updateTarget();
 
   if (!projectile) return;
@@ -189,32 +207,48 @@ function update() {
   projectile.vx *= 0.999;
   projectile.vy *= 0.999;
 
-  // Ground
+  // Ground collision
   if (projectile.y > 300) {
     projectile.y = 300;
     projectile.vy *= -0.7;
     projectile.bounces--;
   }
 
-  // Ceiling
+  // Ceiling collision
   if (projectile.y < 100) {
     projectile.y = 100;
     projectile.vy *= -0.7;
     projectile.bounces--;
   }
 
+  // Right Wall collision
+  if (projectile.x > canvas.width) {
+    projectile.x = canvas.width;
+    projectile.vx *= -0.8;
+    projectile.bounces--;
+  }
+
+  // Left Wall collision
+  if (projectile.x < 0) {
+    projectile.x = 0;
+    projectile.vx *= -0.8;
+    projectile.bounces--;
+  }
+
   checkTriangle(groundMountain);
   checkTriangle(ceilingMountain);
 
-  projectile.life++;
-  if (projectile.life > 800 || projectile.bounces <= 0) {
-    projectile = null;
-  }
-
-  // Hit target
+  // 1. Hit target check MUST come before destroying the projectile
   let dist = Math.hypot(projectile.x - target.x, projectile.y - target.y);
   if (dist < target.radius) {
-    alert("🎯 HIT!");
+    score += 10;
+    projectile = null; // Destroy projectile so user can shoot again
+    return; // Exit the function safely
+  }
+
+  // 2. Life and bounce check
+  projectile.life++;
+  if (projectile.life > 800 || projectile.bounces <= 0) {
     projectile = null;
   }
 }
@@ -268,8 +302,31 @@ function draw() {
 
   // UI
   ctx.fillStyle = "black";
+  ctx.font = "16px Arial";
   ctx.fillText("Angle: " + player.angle.toFixed(1), 10, 20);
   ctx.fillText("Power: " + player.power.toFixed(1), 10, 40);
+  
+  // New UI: Score and Timer
+  ctx.font = "bold 18px Arial";
+  ctx.fillText("Score: " + score, 10, 70);
+  
+  let m = Math.floor(timeLeft / 60);
+  let s = timeLeft % 60;
+  let timeString = `${m}:${s.toString().padStart(2, '0')}`;
+  ctx.fillText("Time: " + timeString, canvas.width - 100, 30);
+
+  // Game Over Screen overlay
+  if (!gameActive) {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = "white";
+    ctx.font = "bold 40px Arial";
+    ctx.fillText("TIME'S UP!", canvas.width / 2 - 110, canvas.height / 2 - 20);
+    
+    ctx.font = "24px Arial";
+    ctx.fillText("Final Score: " + score, canvas.width / 2 - 75, canvas.height / 2 + 20);
+  }
 }
 
 // Loop
