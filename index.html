@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Simple Racing Game</title>
+<title>Racing Game+</title>
 <style>
   body {
     margin: 0;
@@ -21,7 +21,7 @@
 </head>
 <body>
 
-<h2>🏎️ Racing Game</h2>
+<h2>🏎️ Racing Game+</h2>
 <p>↑ = Accelerate | ← → = Steer</p>
 
 <canvas id="game" width="400" height="600"></canvas>
@@ -44,8 +44,7 @@ let car = {
   x: 200,
   y: 500,
   width: 40,
-  height: 70,
-  speedX: 0
+  height: 70
 };
 
 // INPUT
@@ -56,16 +55,16 @@ document.addEventListener("keyup", e => keys[e.key] = false);
 // OBSTACLES
 let obstacles = [];
 
-// spawn obstacles
+// SPAWN OBSTACLE
 function spawnObstacle() {
   let width = 40;
-  let x = Math.random() * (canvas.width - width);
 
   obstacles.push({
-    x: x,
+    x: Math.random() * (canvas.width - width),
     y: -80,
     width: width,
-    height: 70
+    height: 70,
+    vx: (Math.random() - 0.5) * 2  // horizontal movement
   });
 }
 
@@ -79,30 +78,33 @@ function update() {
   if (gameOver) return;
 
   // ACCELERATION
-  if (keys["ArrowUp"]) {
-    speed += acceleration;
-  } else {
-    speed -= friction;
-  }
+  if (keys["ArrowUp"]) speed += acceleration;
+  else speed -= friction;
 
   speed = Math.max(0, Math.min(maxSpeed, speed));
 
   // STEERING
-  if (keys["ArrowLeft"]) {
-    car.x -= 4;
-  }
-  if (keys["ArrowRight"]) {
-    car.x += 4;
-  }
+  if (keys["ArrowLeft"]) car.x -= 4;
+  if (keys["ArrowRight"]) car.x += 4;
 
-  // keep inside road
   car.x = Math.max(0, Math.min(canvas.width - car.width, car.x));
 
-  // MOVE OBSTACLES
-  obstacles.forEach((obs, index) => {
+  // MOVE OBSTACLES (SAFE LOOP)
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    let obs = obstacles[i];
+
+    // vertical movement
     obs.y += speed;
 
-    // collision
+    // horizontal movement
+    obs.x += obs.vx;
+
+    // bounce off walls
+    if (obs.x <= 0 || obs.x + obs.width >= canvas.width) {
+      obs.vx *= -1;
+    }
+
+    // COLLISION
     if (
       car.x < obs.x + obs.width &&
       car.x + car.width > obs.x &&
@@ -112,12 +114,12 @@ function update() {
       gameOver = true;
     }
 
-    // remove off screen + score
+    // REMOVE + SCORE
     if (obs.y > canvas.height) {
-      obstacles.splice(index, 1);
+      obstacles.splice(i, 1);
       score++;
     }
-  });
+  }
 }
 
 // DRAW ROAD
@@ -127,7 +129,6 @@ function drawRoad() {
   ctx.fillStyle = "#333";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // dashed center lines
   ctx.strokeStyle = "white";
   ctx.lineWidth = 4;
   ctx.setLineDash([20, 20]);
@@ -147,7 +148,7 @@ function drawRoad() {
 function draw() {
   drawRoad();
 
-  // player car
+  // player
   ctx.fillStyle = "cyan";
   ctx.fillRect(car.x, car.y, car.width, car.height);
 
