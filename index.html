@@ -2,256 +2,178 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Gadget Snipers+</title>
+<title>Simple Racing Game</title>
 <style>
-body {
-  margin: 0;
-  background: white;
-  text-align: center;
-  font-family: Arial;
-}
-canvas {
-  display: block;
-  margin: auto;
-  border: 2px solid #999;
-}
+  body {
+    margin: 0;
+    background: #222;
+    text-align: center;
+    color: white;
+    font-family: Arial;
+  }
+  canvas {
+    background: #555;
+    display: block;
+    margin: auto;
+    border: 2px solid #999;
+  }
 </style>
 </head>
 <body>
 
-<h2>🎯 Gadget Snipers+</h2>
-<p>Arrow keys = Aim/Power | Space = Shoot</p>
+<h2>🏎️ Racing Game</h2>
+<p>↑ = Accelerate | ← → = Steer</p>
 
-<canvas id="game" width="800" height="400"></canvas>
+<canvas id="game" width="400" height="600"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-const playerImg = new Image();
-playerImg.src = "leon.jpeg";
+// GAME STATE
+let speed = 0;
+let maxSpeed = 8;
+let acceleration = 0.2;
+let friction = 0.05;
 
 let score = 0;
-let timeLeft = 120;
-let gameActive = true;
-
-let projectiles = [];
-let powerUps = [];
-let activePower = null;
-let powerTimer = 0;
-
-const gravity = 0.3;
-
-// TIMER
-setInterval(() => {
-  if (gameActive && timeLeft > 0) timeLeft--;
-  else gameActive = false;
-}, 1000);
+let gameOver = false;
 
 // PLAYER
-let player = {
-  x: 100,
-  y: 300,
-  angle: 45,
-  power: 10
+let car = {
+  x: 200,
+  y: 500,
+  width: 40,
+  height: 70,
+  speedX: 0
 };
 
-// TARGET (dynamic)
-let target = {
-  x: 700,
-  y: 200,
-  radius: 20,
-  mode: "vertical",
-  direction: 1,
-  speed: 2,
-  timer: 0
-};
+// INPUT
+let keys = {};
+document.addEventListener("keydown", e => keys[e.key] = true);
+document.addEventListener("keyup", e => keys[e.key] = false);
 
-// POWER-UP SPAWN
-function spawnPowerUp() {
-  const types = ["multi", "explosive", "slow"];
-  powerUps.push({
-    x: Math.random() * 500 + 200,
-    y: Math.random() * 200 + 100,
-    type: types[Math.floor(Math.random() * types.length)],
-    radius: 10
+// OBSTACLES
+let obstacles = [];
+
+// spawn obstacles
+function spawnObstacle() {
+  let width = 40;
+  let x = Math.random() * (canvas.width - width);
+
+  obstacles.push({
+    x: x,
+    y: -80,
+    width: width,
+    height: 70
   });
 }
-setInterval(spawnPowerUp, 6000);
 
-// CONTROLS
-document.addEventListener("keydown", e => {
-  if (!gameActive) return;
-
-  if (e.key === "ArrowUp") player.angle += 2;
-  if (e.key === "ArrowDown") player.angle -= 2;
-  if (e.key === "ArrowRight") player.power += 0.5;
-  if (e.key === "ArrowLeft") player.power -= 0.5;
-
-  player.power = Math.max(2, Math.min(25, player.power));
-
-  if (e.code === "Space" && projectiles.length === 0) shoot();
-});
-
-// SHOOT
-function shoot() {
-  let count = activePower === "multi" ? 3 : 1;
-
-  for (let i = 0; i < count; i++) {
-    let spread = (i - 1) * 5;
-    let rad = (player.angle + spread) * Math.PI / 180;
-
-    projectiles.push({
-      x: player.x,
-      y: player.y,
-      vx: Math.cos(rad) * player.power,
-      vy: -Math.sin(rad) * player.power,
-      radius: 8,
-      life: 0
-    });
-  }
-}
-
-// TARGET MOVEMENT
-function updateTarget() {
-  target.timer++;
-
-  // switch mode every 3 seconds
-  if (target.timer % 180 === 0) {
-    const modes = ["vertical", "zigzag", "dash"];
-    target.mode = modes[Math.floor(Math.random() * modes.length)];
-  }
-
-  if (target.mode === "vertical") {
-    target.y += target.speed * target.direction;
-    if (target.y > 280 || target.y < 120) target.direction *= -1;
-  }
-
-  if (target.mode === "zigzag") {
-    target.x -= 1.5;
-    target.y += Math.sin(target.timer * 0.1) * 3;
-    if (target.x < 500) target.x = 700;
-  }
-
-  if (target.mode === "dash") {
-    if (target.timer % 60 === 0) {
-      target.y += (Math.random() - 0.5) * 150;
-      target.y = Math.max(120, Math.min(280, target.y));
-    }
-  }
-
-  // DODGE mechanic
-  for (let p of projectiles) {
-    let d = Math.hypot(p.x - target.x, p.y - target.y);
-    if (d < 80) {
-      target.y += (p.y < target.y ? 2 : -2) * 3;
-    }
-  }
-}
+// spawn every 1 second
+setInterval(() => {
+  if (!gameOver) spawnObstacle();
+}, 1000);
 
 // UPDATE
 function update() {
-  if (!gameActive) return;
+  if (gameOver) return;
 
-  updateTarget();
-
-  let slowFactor = activePower === "slow" ? 0.5 : 1;
-
-  projectiles.forEach((p, index) => {
-    p.x += p.vx * slowFactor;
-    p.y += p.vy * slowFactor;
-    p.vy += gravity;
-
-    // hit target
-    let dist = Math.hypot(p.x - target.x, p.y - target.y);
-    if (dist < target.radius) {
-      score += activePower === "explosive" ? 20 : 10;
-
-      if (activePower === "explosive") {
-        // splash effect
-        score += 5;
-      }
-
-      projectiles.splice(index, 1);
-      return;
-    }
-
-    // remove if off screen
-    if (p.x > 800 || p.x < 0 || p.y > 400 || p.y < 0) {
-      projectiles.splice(index, 1);
-    }
-  });
-
-  // POWER-UP COLLISION
-  powerUps.forEach((pu, i) => {
-    projectiles.forEach(p => {
-      let d = Math.hypot(p.x - pu.x, p.y - pu.y);
-      if (d < pu.radius) {
-        activePower = pu.type;
-        powerTimer = 300;
-        powerUps.splice(i, 1);
-      }
-    });
-  });
-
-  // POWER TIMER
-  if (powerTimer > 0) {
-    powerTimer--;
+  // ACCELERATION
+  if (keys["ArrowUp"]) {
+    speed += acceleration;
   } else {
-    activePower = null;
+    speed -= friction;
   }
+
+  speed = Math.max(0, Math.min(maxSpeed, speed));
+
+  // STEERING
+  if (keys["ArrowLeft"]) {
+    car.x -= 4;
+  }
+  if (keys["ArrowRight"]) {
+    car.x += 4;
+  }
+
+  // keep inside road
+  car.x = Math.max(0, Math.min(canvas.width - car.width, car.x));
+
+  // MOVE OBSTACLES
+  obstacles.forEach((obs, index) => {
+    obs.y += speed;
+
+    // collision
+    if (
+      car.x < obs.x + obs.width &&
+      car.x + car.width > obs.x &&
+      car.y < obs.y + obs.height &&
+      car.y + car.height > obs.y
+    ) {
+      gameOver = true;
+    }
+
+    // remove off screen + score
+    if (obs.y > canvas.height) {
+      obstacles.splice(index, 1);
+      score++;
+    }
+  });
+}
+
+// DRAW ROAD
+let roadOffset = 0;
+
+function drawRoad() {
+  ctx.fillStyle = "#333";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // dashed center lines
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 4;
+  ctx.setLineDash([20, 20]);
+
+  ctx.beginPath();
+  ctx.moveTo(canvas.width / 2, -roadOffset);
+  ctx.lineTo(canvas.width / 2, canvas.height);
+  ctx.stroke();
+
+  roadOffset += speed;
+  if (roadOffset > 40) roadOffset = 0;
+
+  ctx.setLineDash([]);
 }
 
 // DRAW
 function draw() {
-  ctx.clearRect(0, 0, 800, 400);
+  drawRoad();
 
-  // player
-  ctx.drawImage(playerImg, player.x - 20, player.y - 40, 40, 40);
+  // player car
+  ctx.fillStyle = "cyan";
+  ctx.fillRect(car.x, car.y, car.width, car.height);
 
-  // aim
-  let rad = player.angle * Math.PI / 180;
-  ctx.beginPath();
-  ctx.moveTo(player.x, player.y);
-  ctx.lineTo(player.x + Math.cos(rad) * 40, player.y - Math.sin(rad) * 40);
-  ctx.stroke();
-
-  // target
+  // obstacles
   ctx.fillStyle = "red";
-  ctx.beginPath();
-  ctx.arc(target.x, target.y, target.radius, 0, Math.PI * 2);
-  ctx.fill();
-
-  // projectiles
-  ctx.fillStyle = "orange";
-  projectiles.forEach(p => {
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
-  // power-ups
-  powerUps.forEach(pu => {
-    ctx.fillStyle = pu.type === "multi" ? "blue" :
-                    pu.type === "explosive" ? "purple" : "green";
-    ctx.beginPath();
-    ctx.arc(pu.x, pu.y, pu.radius, 0, Math.PI * 2);
-    ctx.fill();
+  obstacles.forEach(obs => {
+    ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
   });
 
   // UI
-  ctx.fillStyle = "black";
-  ctx.fillText("Score: " + score, 10, 20);
-  ctx.fillText("Power: " + (activePower || "None"), 10, 40);
+  ctx.fillStyle = "white";
+  ctx.font = "18px Arial";
+  ctx.fillText("Score: " + score, 10, 30);
+  ctx.fillText("Speed: " + speed.toFixed(1), 10, 55);
 
-  let m = Math.floor(timeLeft / 60);
-  let s = timeLeft % 60;
-  ctx.fillText(`Time: ${m}:${s.toString().padStart(2, '0')}`, 700, 20);
+  // GAME OVER
+  if (gameOver) {
+    ctx.fillStyle = "rgba(0,0,0,0.7)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  if (!gameActive) {
-    ctx.fillStyle = "black";
-    ctx.font = "40px Arial";
-    ctx.fillText("GAME OVER", 300, 200);
+    ctx.fillStyle = "white";
+    ctx.font = "30px Arial";
+    ctx.fillText("GAME OVER", 110, 300);
+
+    ctx.font = "20px Arial";
+    ctx.fillText("Final Score: " + score, 120, 340);
   }
 }
 
