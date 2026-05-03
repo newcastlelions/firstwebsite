@@ -1,27 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Gadget Snipers Prototype</title>
-  <style>
-    body {
-      margin: 0;
-      background: white;
-      color: black;
-      font-family: Arial;
-      text-align: center;
-    }
-    canvas {
-      background: white;
-      display: block;
-      margin: 0 auto;
-      border: 2px solid #999;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Gadget Snipers+</title>
+<style>
+body {
+  margin: 0;
+  background: white;
+  text-align: center;
+  font-family: Arial;
+}
+canvas {
+  display: block;
+  margin: auto;
+  border: 2px solid #999;
+}
+</style>
 </head>
 <body>
 
-<h2>🎯 Gadget Snipers (Moving Target Mode)</h2>
+<h2>🎯 Gadget Snipers+</h2>
 <p>Arrow keys = Aim/Power | Space = Shoot</p>
 
 <canvas id="game" width="800" height="400"></canvas>
@@ -30,26 +28,27 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-// Player image
 const playerImg = new Image();
 playerImg.src = "leon.jpeg";
 
-// Game State
 let score = 0;
-let timeLeft = 120; // 2 minutes
+let timeLeft = 120;
 let gameActive = true;
 
-// Timer countdown
-const timerInterval = setInterval(() => {
-  if (gameActive && timeLeft > 0) {
-    timeLeft--;
-  } else if (timeLeft <= 0) {
-    gameActive = false;
-    clearInterval(timerInterval);
-  }
+let projectiles = [];
+let powerUps = [];
+let activePower = null;
+let powerTimer = 0;
+
+const gravity = 0.3;
+
+// TIMER
+setInterval(() => {
+  if (gameActive && timeLeft > 0) timeLeft--;
+  else gameActive = false;
 }, 1000);
 
-// Player (fixed position)
+// PLAYER
 let player = {
   x: 100,
   y: 300,
@@ -57,279 +56,206 @@ let player = {
   power: 10
 };
 
-// 🎯 Moving target
+// TARGET (dynamic)
 let target = {
   x: 700,
   y: 200,
   radius: 20,
+  mode: "vertical",
   direction: 1,
-  speed: 2
+  speed: 2,
+  timer: 0
 };
 
-// 🏔️ Ground mountain
-let groundMountain = {
-  p1: { x: 300, y: 320 },
-  p2: { x: 400, y: 240 },
-  p3: { x: 500, y: 320 }
-};
+// POWER-UP SPAWN
+function spawnPowerUp() {
+  const types = ["multi", "explosive", "slow"];
+  powerUps.push({
+    x: Math.random() * 500 + 200,
+    y: Math.random() * 200 + 100,
+    type: types[Math.floor(Math.random() * types.length)],
+    radius: 10
+  });
+}
+setInterval(spawnPowerUp, 6000);
 
-// 🏔️ Ceiling mountain
-let ceilingMountain = {
-  p1: { x: 300, y: 80 },
-  p2: { x: 400, y: 160 },
-  p3: { x: 500, y: 80 }
-};
-
-let projectile = null;
-const gravity = 0.3;
-
-// Controls
+// CONTROLS
 document.addEventListener("keydown", e => {
-  if (!gameActive) return; // Disable controls if game is over
+  if (!gameActive) return;
 
   if (e.key === "ArrowUp") player.angle += 2;
   if (e.key === "ArrowDown") player.angle -= 2;
   if (e.key === "ArrowRight") player.power += 0.5;
   if (e.key === "ArrowLeft") player.power -= 0.5;
 
-  player.power = Math.max(2, Math.min(player.power, 25));
+  player.power = Math.max(2, Math.min(25, player.power));
 
-  if (e.code === "Space" && !projectile) shoot();
+  if (e.code === "Space" && projectiles.length === 0) shoot();
 });
 
+// SHOOT
 function shoot() {
-  let rad = player.angle * Math.PI / 180;
+  let count = activePower === "multi" ? 3 : 1;
 
-  projectile = {
-    x: player.x,
-    y: player.y,
-    vx: Math.cos(rad) * player.power,
-    vy: -Math.sin(rad) * player.power,
-    radius: 8,
-    bounces: 6,
-    life: 0
-  };
+  for (let i = 0; i < count; i++) {
+    let spread = (i - 1) * 5;
+    let rad = (player.angle + spread) * Math.PI / 180;
+
+    projectiles.push({
+      x: player.x,
+      y: player.y,
+      vx: Math.cos(rad) * player.power,
+      vy: -Math.sin(rad) * player.power,
+      radius: 8,
+      life: 0
+    });
+  }
 }
 
-// Move target up/down
+// TARGET MOVEMENT
 function updateTarget() {
-  target.y += target.speed * target.direction;
+  target.timer++;
 
-  if (target.y > 280) target.direction = -1;
-  if (target.y < 120) target.direction = 1;
-}
-
-// Distance helper
-function pointLineDistance(px, py, x1, y1, x2, y2) {
-  let A = px - x1;
-  let B = py - y1;
-  let C = x2 - x1;
-  let D = y2 - y1;
-
-  let dot = A * C + B * D;
-  let len_sq = C * C + D * D;
-  let param = dot / len_sq;
-
-  let xx, yy;
-
-  if (param < 0) {
-    xx = x1; yy = y1;
-  } else if (param > 1) {
-    xx = x2; yy = y2;
-  } else {
-    xx = x1 + param * C;
-    yy = y1 + param * D;
+  // switch mode every 3 seconds
+  if (target.timer % 180 === 0) {
+    const modes = ["vertical", "zigzag", "dash"];
+    target.mode = modes[Math.floor(Math.random() * modes.length)];
   }
 
-  let dx = px - xx;
-  let dy = py - yy;
-  return Math.sqrt(dx * dx + dy * dy);
-}
+  if (target.mode === "vertical") {
+    target.y += target.speed * target.direction;
+    if (target.y > 280 || target.y < 120) target.direction *= -1;
+  }
 
-// Reflection
-function reflect(vx, vy, x1, y1, x2, y2) {
-  let dx = x2 - x1;
-  let dy = y2 - y1;
+  if (target.mode === "zigzag") {
+    target.x -= 1.5;
+    target.y += Math.sin(target.timer * 0.1) * 3;
+    if (target.x < 500) target.x = 700;
+  }
 
-  let nx = -dy;
-  let ny = dx;
-
-  let len = Math.sqrt(nx * nx + ny * ny);
-  nx /= len;
-  ny /= len;
-
-  let dot = vx * nx + vy * ny;
-
-  return {
-    vx: vx - 2 * dot * nx,
-    vy: vy - 2 * dot * ny
-  };
-}
-
-// Triangle collision
-function checkTriangle(tri) {
-  let sides = [
-    [tri.p1, tri.p2],
-    [tri.p2, tri.p3],
-    [tri.p3, tri.p1]
-  ];
-
-  for (let [a, b] of sides) {
-    let dist = pointLineDistance(
-      projectile.x, projectile.y,
-      a.x, a.y,
-      b.x, b.y
-    );
-
-    if (dist < projectile.radius + 2) {
-      let r = reflect(projectile.vx, projectile.vy, a.x, a.y, b.x, b.y);
-      projectile.vx = r.vx * 0.8;
-      projectile.vy = r.vy * 0.8;
-      projectile.bounces--;
-      return true;
+  if (target.mode === "dash") {
+    if (target.timer % 60 === 0) {
+      target.y += (Math.random() - 0.5) * 150;
+      target.y = Math.max(120, Math.min(280, target.y));
     }
   }
-  return false;
+
+  // DODGE mechanic
+  for (let p of projectiles) {
+    let d = Math.hypot(p.x - target.x, p.y - target.y);
+    if (d < 80) {
+      target.y += (p.y < target.y ? 2 : -2) * 3;
+    }
+  }
 }
 
-// Update physics
+// UPDATE
 function update() {
   if (!gameActive) return;
+
   updateTarget();
 
-  if (!projectile) return;
+  let slowFactor = activePower === "slow" ? 0.5 : 1;
 
-  projectile.x += projectile.vx;
-  projectile.y += projectile.vy;
+  projectiles.forEach((p, index) => {
+    p.x += p.vx * slowFactor;
+    p.y += p.vy * slowFactor;
+    p.vy += gravity;
 
-  projectile.vy += gravity;
+    // hit target
+    let dist = Math.hypot(p.x - target.x, p.y - target.y);
+    if (dist < target.radius) {
+      score += activePower === "explosive" ? 20 : 10;
 
-  projectile.vx *= 0.999;
-  projectile.vy *= 0.999;
+      if (activePower === "explosive") {
+        // splash effect
+        score += 5;
+      }
 
-  // Ground collision
-  if (projectile.y > 300) {
-    projectile.y = 300;
-    projectile.vy *= -0.7;
-    projectile.bounces--;
-  }
+      projectiles.splice(index, 1);
+      return;
+    }
 
-  // Ceiling collision
-  if (projectile.y < 100) {
-    projectile.y = 100;
-    projectile.vy *= -0.7;
-    projectile.bounces--;
-  }
+    // remove if off screen
+    if (p.x > 800 || p.x < 0 || p.y > 400 || p.y < 0) {
+      projectiles.splice(index, 1);
+    }
+  });
 
-  // Right Wall collision
-  if (projectile.x > canvas.width) {
-    projectile.x = canvas.width;
-    projectile.vx *= -0.8;
-    projectile.bounces--;
-  }
+  // POWER-UP COLLISION
+  powerUps.forEach((pu, i) => {
+    projectiles.forEach(p => {
+      let d = Math.hypot(p.x - pu.x, p.y - pu.y);
+      if (d < pu.radius) {
+        activePower = pu.type;
+        powerTimer = 300;
+        powerUps.splice(i, 1);
+      }
+    });
+  });
 
-  // Left Wall collision
-  if (projectile.x < 0) {
-    projectile.x = 0;
-    projectile.vx *= -0.8;
-    projectile.bounces--;
-  }
-
-  checkTriangle(groundMountain);
-  checkTriangle(ceilingMountain);
-
-  // 1. Hit target check MUST come before destroying the projectile
-  let dist = Math.hypot(projectile.x - target.x, projectile.y - target.y);
-  if (dist < target.radius) {
-    score += 10;
-    projectile = null; // Destroy projectile so user can shoot again
-    return; // Exit the function safely
-  }
-
-  // 2. Life and bounce check
-  projectile.life++;
-  if (projectile.life > 800 || projectile.bounces <= 0) {
-    projectile = null;
+  // POWER TIMER
+  if (powerTimer > 0) {
+    powerTimer--;
+  } else {
+    activePower = null;
   }
 }
 
-// Draw triangle
-function drawTriangle(t, color) {
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.moveTo(t.p1.x, t.p1.y);
-  ctx.lineTo(t.p2.x, t.p2.y);
-  ctx.lineTo(t.p3.x, t.p3.y);
-  ctx.closePath();
-  ctx.fill();
-}
-
-// Draw
+// DRAW
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, 800, 400);
 
-  // Mountains
-  drawTriangle(groundMountain, "#777");
-  drawTriangle(ceilingMountain, "#999");
-
-  // Player
+  // player
   ctx.drawImage(playerImg, player.x - 20, player.y - 40, 40, 40);
 
-  // Aim line
+  // aim
   let rad = player.angle * Math.PI / 180;
-  ctx.strokeStyle = "black";
   ctx.beginPath();
   ctx.moveTo(player.x, player.y);
-  ctx.lineTo(
-    player.x + Math.cos(rad) * 40,
-    player.y - Math.sin(rad) * 40
-  );
+  ctx.lineTo(player.x + Math.cos(rad) * 40, player.y - Math.sin(rad) * 40);
   ctx.stroke();
 
-  // Target
+  // target
   ctx.fillStyle = "red";
   ctx.beginPath();
   ctx.arc(target.x, target.y, target.radius, 0, Math.PI * 2);
   ctx.fill();
 
-  // Projectile
-  if (projectile) {
-    ctx.fillStyle = "orange";
+  // projectiles
+  ctx.fillStyle = "orange";
+  projectiles.forEach(p => {
     ctx.beginPath();
-    ctx.arc(projectile.x, projectile.y, projectile.radius, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
     ctx.fill();
-  }
+  });
+
+  // power-ups
+  powerUps.forEach(pu => {
+    ctx.fillStyle = pu.type === "multi" ? "blue" :
+                    pu.type === "explosive" ? "purple" : "green";
+    ctx.beginPath();
+    ctx.arc(pu.x, pu.y, pu.radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
 
   // UI
   ctx.fillStyle = "black";
-  ctx.font = "16px Arial";
-  ctx.fillText("Angle: " + player.angle.toFixed(1), 10, 20);
-  ctx.fillText("Power: " + player.power.toFixed(1), 10, 40);
-  
-  // New UI: Score and Timer
-  ctx.font = "bold 18px Arial";
-  ctx.fillText("Score: " + score, 10, 70);
-  
+  ctx.fillText("Score: " + score, 10, 20);
+  ctx.fillText("Power: " + (activePower || "None"), 10, 40);
+
   let m = Math.floor(timeLeft / 60);
   let s = timeLeft % 60;
-  let timeString = `${m}:${s.toString().padStart(2, '0')}`;
-  ctx.fillText("Time: " + timeString, canvas.width - 100, 30);
+  ctx.fillText(`Time: ${m}:${s.toString().padStart(2, '0')}`, 700, 20);
 
-  // Game Over Screen overlay
   if (!gameActive) {
-    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    ctx.fillStyle = "white";
-    ctx.font = "bold 40px Arial";
-    ctx.fillText("TIME'S UP!", canvas.width / 2 - 110, canvas.height / 2 - 20);
-    
-    ctx.font = "24px Arial";
-    ctx.fillText("Final Score: " + score, canvas.width / 2 - 75, canvas.height / 2 + 20);
+    ctx.fillStyle = "black";
+    ctx.font = "40px Arial";
+    ctx.fillText("GAME OVER", 300, 200);
   }
 }
 
-// Loop
+// LOOP
 function loop() {
   update();
   draw();
